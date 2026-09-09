@@ -50,6 +50,21 @@ flowchart LR
 - [参考資料・次に読むべきもの](further-reading.md) — もっと深掘りしたい人向けの外部資料
 - [LICENSE](LICENSE) — 本書はCC BY-SA 4.0で公開している
 
+## 同梱スキル
+
+本書の内容を、実際のコードに対して実行できる指示ファイル（`SKILL.md`）として[skills/](skills/README.md)に同梱している。プレーンなMarkdownなので、Claude Codeに限らず他のAIツールにも渡して使える（詳細は[skills/README.md](skills/README.md)を参照）。各章のページにも、対応するskillへのリンクを置いている。
+
+| skill | 対応章 | 役割 |
+|---|---|---|
+| [spec-first](skills/spec-first/SKILL.md) | 3・4章 | 作る前 |
+| [happy-path-audit](skills/happy-path-audit/SKILL.md) | 1・5章 | 作った直後 |
+| [break-it](skills/break-it/SKILL.md) | 5章 | テスト |
+| [notice-it](skills/notice-it/SKILL.md) | 2・3・6章 | 本番 |
+| [security-baseline](skills/security-baseline/SKILL.md) | 7章 | 攻撃者視点 |
+| [ci-readiness](skills/ci-readiness/SKILL.md) | 8章 | 継続運用 |
+| [ai-tool-picker](skills/ai-tool-picker/SKILL.md) | 9章 | ツール選定 |
+| [vibe-coding-checklist](skills/vibe-coding-checklist/SKILL.md) | 10章 | 上記全体のフィードバックループ実行版 |
+
 ## 章の依存関係
 
 どの章がどの章を前提にしているかの目安。上から順に読むのが基本だが、第8章・第9章はそれぞれ第5章・第4章の応用にあたる。
