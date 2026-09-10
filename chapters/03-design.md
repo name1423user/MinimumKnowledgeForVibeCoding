@@ -125,7 +125,7 @@ orders(order_id, customer_id, product_name, price)
   orders = db.query("SELECT * FROM orders")       # 1回目のクエリ
   for order in orders:
       customer = db.query(                        # 注文が100件あれば、ここが100回実行される
-          f"SELECT * FROM customers WHERE id = {order.customer_id}"
+          "SELECT * FROM customers WHERE id = ?", (order.customer_id,)
       )
       print(customer.name, order.total)
 
@@ -138,9 +138,12 @@ orders(order_id, customer_id, product_name, price)
   # 解決策2: 必要なIDをまとめて集め、1回のIN句で取得する（JOINが使いにくい構成の時）
   orders = db.query("SELECT * FROM orders")
   customer_ids = [o.customer_id for o in orders]
-  customers = db.query(f"SELECT * FROM customers WHERE id IN ({','.join(map(str, customer_ids))})")
+  placeholders = ",".join(["?"] * len(customer_ids))
+  customers = db.query(f"SELECT * FROM customers WHERE id IN ({placeholders})", customer_ids)
   customers_by_id = {c.id: c for c in customers}
   ```
+
+  クエリの組み立て方自体にも注意する。件数を減らす（N+1を解消する）ことと、値を安全に渡す（[7.2節「SQL Injection」](07-security.md#72-sql-injection)のプレースホルダを使う）ことは別の問題で、両方とも満たす必要がある。上の例では`order.customer_id`はDBから読み出した値であって直接の外部入力ではないが、値をSQL文字列に直接埋め込む書き方（f-string）はSQL Injectionの温床になる書き方そのものなので、値の由来にかかわらずプレースホルダで統一しておくのが安全な習慣になる。
 
   注文が100件なら、N+1のコードは101回のクエリを発行するが、JOINやIN句を使えばどちらもクエリは1〜2回で済む。件数が少ないうちは体感できないが、データが増えるほど**注文件数に比例してレスポンスが遅くなる**ため、本番でユーザー数が増えてから突然「重い」と気づくパターンが多い。AIに「一覧を表示する処理を書いて」とだけ頼むと、ループの中でクエリを発行するN+1の形になりやすいので、「1回のクエリで取得して」と明示すると精度が上がる
 

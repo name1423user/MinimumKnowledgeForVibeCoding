@@ -13,7 +13,7 @@
 
 - **『テスト駆動開発』**（Kent Beck）— [第5章](chapters/05-breaking-it.md)・[第8章](chapters/08-testing-and-cicd.md)のテストの考え方を、実際に手を動かしながら体系的に学べる
 - 使用しているテストフレームワーク（pytest、Jest など）の公式ドキュメントの「テストピラミッド」「モック」に関する章
-- **Hypothesis（Python）** (<https://hypothesis.readthedocs.io/>) — [5.12節](chapters/05-breaking-it.md#512-手で1つずつ壊す限界-プロパティベーステストファジング)で触れたプロパティベーステストの代表的なライブラリ。JavaScriptなら`fast-check`が近い立ち位置
+- **Hypothesis（Python）** (<https://hypothesis.readthedocs.io/>) — [5.3節](chapters/05-breaking-it.md#53-手で1つずつ壊す限界-プロパティベーステストファジング)で触れたプロパティベーステストの代表的なライブラリ。JavaScriptなら`fast-check`が近い立ち位置
 
 ## セキュリティ
 

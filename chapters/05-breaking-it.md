@@ -28,41 +28,43 @@
 「同時実行」は一覧の中でも特に理解しづらい割に、本番でよく事故を起こす。実際にコードで再現すると、なぜ危険か体感できる。
 
 ```python
-import threading
+import threading, time
 
-balance = 100
+balance = 10_000
 
-def withdraw(amount):
+def withdraw():
     global balance
-    current = balance      # (1) 読み込む
-    # ここで別スレッドに処理が切り替わる可能性がある
-    new_balance = current - amount
-    balance = new_balance  # (2) 書き込む
+    for _ in range(1_000):
+        current = balance   # (1) 読み込む
+        time.sleep(0)        # 意図的に他のスレッドへ実行を譲る（(1)と(2)の間に割り込ませる）
+        balance = current - 1  # (2) 書き込む（1円ずつ引く）
 
-threads = [threading.Thread(target=withdraw, args=(10,)) for _ in range(5)]
+threads = [threading.Thread(target=withdraw) for _ in range(4)]
 for t in threads:
     t.start()
 for t in threads:
     t.join()
 
-print(balance)  # 期待値は 100 - 10*5 = 50 だが、実行するたびに 60 や 70 になることがある
+print(balance)  # 期待値は 10,000 - 1,000*4 = 6,000 だが、実行するとほぼ確実にそれより大きい値になる
 ```
 
-`withdraw`は「読み込む→引き算する→書き込む」という3ステップに見えるが、これは**1つのアトミック（不可分）な操作ではない**。スレッドAが(1)で`balance=100`を読み込んだ直後、スレッドBも(1)で同じ`100`を読み込んでしまうと、両方とも「100から引く」計算をして、最後に書き込んだ方の結果だけが残る。5回引き出したはずなのに、実際には1〜2回分しか反映されない、という現象が起きる。
+`withdraw`の中身は「読み込む→引き算する→書き込む」という3ステップに見えるが、これは**1つのアトミック（不可分）な操作ではない**。スレッドAが(1)で読み込んだ直後に他のスレッドへ処理が切り替わり、スレッドBも(1)で同じ値を読み込んでしまうと、両方とも同じ値から1円引いた結果を書き込み、片方の引き算がなかったことになる。`time.sleep(0)`は「(1)と(2)の間で必ず他のスレッドに実行が渡る」状況を意図的に作るための行で、実際のアプリのコードには書かない。しかし本番でも、読み込みと書き込みの間に通信待ちやディスクI/Oのような「一瞬処理が止まる」瞬間が挟まれば、この`sleep(0)`と同じことが自然に起きる。4スレッドが1,000回ずつ、合計4,000回引いたはずなのに、実行結果は`6,000`より大きい値になる（何回か「引き忘れ」が起きている）はずだ。
 
 ```python
 lock = threading.Lock()
 
-def withdraw(amount):
+def withdraw():
     global balance
-    with lock:               # ロックを取得した1スレッドだけが、この間の処理を実行できる
-        current = balance
-        balance = current - amount
+    for _ in range(1_000):
+        with lock:               # ロックを取得した1スレッドだけが、この間の処理を実行できる
+            current = balance
+            time.sleep(0)
+            balance = current - 1
 ```
 
 `Lock`（排他ロック）を使うと、「読み込む→書き込む」の一連の操作を、常に1スレッドずつ順番に実行させられる。DBを使う場合は、アプリ側でロックを書く代わりに`SELECT ... FOR UPDATE`や`UPDATE users SET balance = balance - 10`のような**DB側の機能で不可分な更新にする**ことも多い（[3.6節「状態管理」](03-design.md#36-状態管理)も参照）。
 
-## 5.11 壊し方をテストコードに変換する
+## 5.2 壊し方をテストコードに変換する
 
 手で壊して見つけたバグは、そのまま忘れると同じバグが後で復活する。見つけた壊し方を**テストコード**として残すことで、「二度と同じ理由では壊れない」状態を保証できる。
 
@@ -89,7 +91,7 @@ def test_discount_empty_cart_returns_zero():
     assert calculate_total_discount(items=[]) == 0
 ```
 
-## 5.12 手で1つずつ壊す限界: プロパティベーステスト・ファジング
+## 5.3 手で1つずつ壊す限界: プロパティベーステスト・ファジング
 
 5.1節の観点を手で1つずつ試すやり方は、思いつく範囲でしか壊せないという限界がある。「想定していなかった入力」こそがバグの温床なのに、それを人間が想定できる時点で矛盾がある。この限界を補うのが、ツールに大量のランダムな入力を生成させて壊させる手法だ。
 

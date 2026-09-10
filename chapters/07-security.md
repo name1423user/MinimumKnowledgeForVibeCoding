@@ -57,14 +57,15 @@ subprocess.run(["ping", "-c", "3", host], shell=False)
 
 ```python
 # 危険: ユーザーが指定したファイル名をそのままパスに使う
-@app.route("/files/<filename>")
+# <path:filename> はスラッシュを含む値も受け取れるコンバータ（既定の<filename>はスラッシュを含む値を弾いてしまう）
+@app.route("/files/<path:filename>")
 def get_file(filename):
     return open(f"/var/app/uploads/{filename}").read()
 # filename が "../../etc/passwd" だと、意図しないファイルが読める
 
 # 安全: ベースディレクトリの外に出ようとしていないか検証する
 import os
-@app.route("/files/<filename>")
+@app.route("/files/<path:filename>")
 def get_file(filename):
     base = os.path.realpath("/var/app/uploads")
     target = os.path.realpath(os.path.join(base, filename))
