@@ -72,22 +72,25 @@ const [user, orders] = await Promise.all([fetchUser(userId), fetchOrders(userId)
 
 ```python
 # 悪い例1: 何が起きても同じように握りつぶす（何のエラーかすら分からない）
-try:
-    result = risky_operation()
-except Exception:
-    return None
+def run_bad_1():
+    try:
+        return risky_operation()
+    except Exception:
+        return None
 
 # 悪い例2: 例外は捕まえているが、原因の手がかりを消して投げ直している
-try:
-    result = risky_operation()
-except ValueError:
-    raise RuntimeError("failed")  # 元の例外(ValueErrorの中身)が失われる
+def run_bad_2():
+    try:
+        return risky_operation()
+    except ValueError:
+        raise RuntimeError("failed")  # 元の例外(ValueErrorの中身)が失われる
 
 # 良い例: 想定される例外だけを狭く捕まえ、原因を保持したまま伝える
-try:
-    result = risky_operation()
-except ValueError as e:
-    raise RuntimeError(f"risky_operation failed: {e}") from e  # `from e`で元の例外を連鎖させる
+def run_good():
+    try:
+        return risky_operation()
+    except ValueError as e:
+        raise RuntimeError(f"risky_operation failed: {e}") from e  # `from e`で元の例外を連鎖させる
 ```
 
 「悪い例1」の`except Exception`は、`ValueError`のような想定内のエラーも、`KeyboardInterrupt`のようなプログラムを止めるべきシグナルも、コードのバグそのもの（`NameError`など）も、全部同じように握りつぶしてしまう。**捕まえる例外の型は、対処法を知っているものだけに絞る**のが原則。「悪い例2」は一見丁寧に見えるが、`raise ... from e`を使わずに例外を投げ直すと、スタックトレース（どこで最初に何が起きたかの記録）から元の例外の情報が失われ、ログを見ても本当の原因（今回なら`ValueError`が投げられた理由）が追えなくなる。

@@ -47,7 +47,7 @@ def export_users():
 @require_role("admin")                       # (1) 権限チェック
 def export_users():
     def generate():
-        yield "﻿"                       # (3) UTF-8 BOMで文字化けを防ぐ
+        yield "\ufeff"                   # (3) UTF-8 BOMで文字化けを防ぐ（不可視文字を直接書かずエスケープで表す）
         for chunk in db.query_in_batches("SELECT * FROM users", batch_size=1000):  # (2) 分割処理
             yield to_csv(chunk)
     return Response(generate(), mimetype="text/csv")

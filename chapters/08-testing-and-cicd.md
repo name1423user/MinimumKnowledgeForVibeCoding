@@ -43,6 +43,7 @@ def test_registration_sends_email():
     register_user("test@example.com")  # 本当にメールが飛ぶ。実行するたびに課金・迷惑になる
 
 # 良い例: メール送信部分をモックに差し替え、「呼ばれたか」だけを検証する
+# mockerは pytest 本体ではなく pytest-mock（別途インストールが必要）が提供するフィクスチャ
 def test_registration_sends_email(mocker):
     mock_send = mocker.patch("mailer.send")
     register_user("test@example.com")
@@ -77,6 +78,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - run: pip install ruff pytest-cov  # Lint/カバレッジ計測ツールはrequirements.txtに
+                                           # 含まれるとは限らないので明示的にインストールする
       - run: ruff check .                # Lint（コードスタイル・簡単なバグの検出）
       - run: pytest --cov=app            # テスト実行（カバレッジも計測）
 ```
