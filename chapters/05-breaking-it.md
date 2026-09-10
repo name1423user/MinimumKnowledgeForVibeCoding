@@ -23,6 +23,45 @@
 - **再起動**: アプリやサーバーが処理の途中で再起動する
 - **二重実行**: 同じ処理（決済など）が誤って2回実行される
 
+### 5.1.1 「同時実行」を実際に手元で再現する
+
+「同時実行」は一覧の中でも特に理解しづらい割に、本番でよく事故を起こす。実際にコードで再現すると、なぜ危険か体感できる。
+
+```python
+import threading
+
+balance = 100
+
+def withdraw(amount):
+    global balance
+    current = balance      # (1) 読み込む
+    # ここで別スレッドに処理が切り替わる可能性がある
+    new_balance = current - amount
+    balance = new_balance  # (2) 書き込む
+
+threads = [threading.Thread(target=withdraw, args=(10,)) for _ in range(5)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+print(balance)  # 期待値は 100 - 10*5 = 50 だが、実行するたびに 60 や 70 になることがある
+```
+
+`withdraw`は「読み込む→引き算する→書き込む」という3ステップに見えるが、これは**1つのアトミック（不可分）な操作ではない**。スレッドAが(1)で`balance=100`を読み込んだ直後、スレッドBも(1)で同じ`100`を読み込んでしまうと、両方とも「100から引く」計算をして、最後に書き込んだ方の結果だけが残る。5回引き出したはずなのに、実際には1〜2回分しか反映されない、という現象が起きる。
+
+```python
+lock = threading.Lock()
+
+def withdraw(amount):
+    global balance
+    with lock:               # ロックを取得した1スレッドだけが、この間の処理を実行できる
+        current = balance
+        balance = current - amount
+```
+
+`Lock`（排他ロック）を使うと、「読み込む→書き込む」の一連の操作を、常に1スレッドずつ順番に実行させられる。DBを使う場合は、アプリ側でロックを書く代わりに`SELECT ... FOR UPDATE`や`UPDATE users SET balance = balance - 10`のような**DB側の機能で不可分な更新にする**ことも多い（[3.6節「状態管理」](03-design.md#36-状態管理)も参照）。
+
 ## 5.11 壊し方をテストコードに変換する
 
 手で壊して見つけたバグは、そのまま忘れると同じバグが後で復活する。見つけた壊し方を**テストコード**として残すことで、「二度と同じ理由では壊れない」状態を保証できる。
@@ -49,6 +88,29 @@ def test_discount_negative_rate_raises():
 def test_discount_empty_cart_returns_zero():
     assert calculate_total_discount(items=[]) == 0
 ```
+
+## 5.12 手で1つずつ壊す限界: プロパティベーステスト・ファジング
+
+5.1節の観点を手で1つずつ試すやり方は、思いつく範囲でしか壊せないという限界がある。「想定していなかった入力」こそがバグの温床なのに、それを人間が想定できる時点で矛盾がある。この限界を補うのが、ツールに大量のランダムな入力を生成させて壊させる手法だ。
+
+- **ファジング（Fuzzing）**: ランダムな（あるいは既存の入力を少しずつ変化させた）データを大量に投入し、クラッシュや例外が起きる入力を機械的に探す手法。文字列のパース処理やファイル読み込みなど、外部入力を扱う処理と相性がいい
+- **プロパティベーステスト**: 「入力Aと入力Bの合計は、Bと入力Aの合計と必ず一致する」のような、具体的な値ではなく**満たすべき性質（プロパティ）**をテストとして書き、ツールが自動で大量の入力パターンを生成して性質が崩れる反例を探す
+
+```python
+# 通常のテスト: 自分が思いついた具体的な値でしか検証できない
+def test_discount_specific_case():
+    assert calculate_discount(price=1000, rate=10) == 900
+
+# プロパティベーステスト(hypothesisライブラリ): 「割引後の価格は常に元の価格以下」という
+# 性質を宣言すると、ツールが自動で境界値・極端な値を含む数千パターンを生成して検証する
+from hypothesis import given, strategies as st
+
+@given(price=st.integers(min_value=0), rate=st.integers(min_value=0, max_value=100))
+def test_discount_never_exceeds_original_price(price, rate):
+    assert calculate_discount(price, rate) <= price
+```
+
+人間が「境界値をいくつか試す」だけでは、`price=999999999999`のような桁外れの値や、`rate`と`price`の特定の組み合わせでしか起きない不具合には気づけないことが多い。プロパティベーステストは、そうした「思いつかない組み合わせ」をツール側に探させる発想であり、5.1節の手動チェックリストを卒業した後の次のステップにあたる。
 
 ---
 
