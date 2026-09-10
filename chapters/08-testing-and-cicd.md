@@ -27,6 +27,31 @@
 
 AIに「テスト書いて」とだけ頼むと単体テストに偏りがちなので、「結合テストも含めて」「主要な画面遷移のE2Eも1本」のように、どの層を書いてほしいかを明示すると精度が上がる。
 
+### 8.1.1 テストダブル: モック・スタブ・フェイク
+
+単体テストを「狭く」検証するには、テスト対象が依存している外部の要素（DB、外部API、時刻など）を、テスト用の代役に差し替える必要がある。この代役を総称して**テストダブル**と呼び、目的によって使い分ける。
+
+| 種類 | 役割 | 例 |
+|---|---|---|
+| スタブ（Stub） | 決まった値を返すだけの単純な代役 | `get_weather()`を呼ぶと常に`"晴れ"`を返すようにする |
+| モック（Mock） | 「正しく呼ばれたか」自体を検証する代役 | `send_email()`が「1回だけ、この宛先で」呼ばれたことを確認する |
+| フェイク（Fake） | 簡易だが動作する代替実装 | 本物のDBの代わりに、メモリ上の辞書で読み書きする簡易DB |
+
+```python
+# 悪い例: 実際に外部のメール送信APIを叩いてしまうテスト
+def test_registration_sends_email():
+    register_user("test@example.com")  # 本当にメールが飛ぶ。実行するたびに課金・迷惑になる
+
+# 良い例: メール送信部分をモックに差し替え、「呼ばれたか」だけを検証する
+# mockerは pytest 本体ではなく pytest-mock（別途インストールが必要）が提供するフィクスチャ
+def test_registration_sends_email(mocker):
+    mock_send = mocker.patch("mailer.send")
+    register_user("test@example.com")
+    mock_send.assert_called_once_with("test@example.com", subject="welcome")
+```
+
+テストダブルは便利だが、**モックしすぎると「実装の詳細」をテストしてしまい、リファクタリングのたびにテストが壊れる**という副作用がある。「外部との境界（メール送信、決済API、時刻取得など）」だけをモックし、自分のコードのロジック自体はモックせずに実際に実行する、という線引きが実践的な目安になる。
+
 ## 8.2 CI（継続的インテグレーション）とは
 
 コードを共有リポジトリに送る（push・PR作成）たびに、テストやビルドを自動で実行する仕組み。「自分のPCでは動いた」と「誰の環境でも動く」の差を、人間が確認する前に機械的に検出する。
@@ -34,6 +59,32 @@ AIに「テスト書いて」とだけ頼むと単体テストに偏りがちな
 - コミットのたびに全テストを自動実行する
 - テストが1つでも落ちたら、その変更はマージしない・気づける状態にする
 - Lintやフォーマットチェックもここに含めると、コードスタイルのレビューが不要になる
+
+具体的にどう設定するかは、GitHub Actionsを例にすると次のような形になる。
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on:
+  pull_request:        # PRを作成・更新するたびに実行
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4        # リポジトリのコードを取得
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: pip install ruff pytest-cov  # Lint/カバレッジ計測ツールはrequirements.txtに
+                                           # 含まれるとは限らないので明示的にインストールする
+      - run: ruff check .                # Lint（コードスタイル・簡単なバグの検出）
+      - run: pytest --cov=app            # テスト実行（カバレッジも計測）
+```
+
+ポイントは`on: pull_request`で「PRが作られる・更新されるたび」にジョブが起動する点と、`pytest`の**終了コード**（テストが1つでも失敗すると0以外を返す）をGitHub側が検知して、PR画面に✕マークを表示する点にある。人間が「テストを実行し忘れる」余地をなくすのが、この仕組みの本質的な価値になる。
 
 ## 8.3 CD（継続的デリバリー/デプロイ）とは
 

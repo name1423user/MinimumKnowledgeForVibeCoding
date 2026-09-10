@@ -13,10 +13,12 @@
 
 - **『テスト駆動開発』**（Kent Beck）— [第5章](chapters/05-breaking-it.md)・[第8章](chapters/08-testing-and-cicd.md)のテストの考え方を、実際に手を動かしながら体系的に学べる
 - 使用しているテストフレームワーク（pytest、Jest など）の公式ドキュメントの「テストピラミッド」「モック」に関する章
+- **Hypothesis（Python）** (<https://hypothesis.readthedocs.io/>) — [5.3節](chapters/05-breaking-it.md#53-手で1つずつ壊す限界-プロパティベーステストファジング)で触れたプロパティベーステストの代表的なライブラリ。JavaScriptなら`fast-check`が近い立ち位置
 
 ## セキュリティ
 
 - **OWASP Top 10** (<https://owasp.org/www-project-top-ten/>) — [第7章](chapters/07-security.md)で扱った脆弱性の、業界標準の分類と最新動向
+- **OWASP Top 10 for Large Language Model Applications** (<https://owasp.org/www-project-top-10-for-large-language-model-applications/>) — [9.3.1節](chapters/09-choosing-ai-tools.md#931-エージェント型特有のリスク-プロンプトインジェクション)で触れたプロンプトインジェクションなど、AIエージェント特有のリスクの分類
 - **IPA（情報処理推進機構）の情報セキュリティ関連資料** (<https://www.ipa.go.jp/security/>) — 日本語で読める、実例に基づいたセキュリティ情報
 
 ## CI/CD
